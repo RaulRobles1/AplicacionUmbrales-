@@ -1,6 +1,6 @@
 
 {{--
-
+ESTO ES UNA PRUEBA PARA VERSI EN LA MAQUINA VIRTUAL TAMBIEN SE VE EN CUANTO LO GUARDE
 -----------------------------------------------------------CODIGO EN DESUSO--------------------------
 
 @extends('auth.plantilla')

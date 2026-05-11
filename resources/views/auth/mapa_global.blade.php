@@ -85,9 +85,13 @@
             line-height: 1.45;
             color: #334155;
         }
+        .tendencia-mapa {
+            font-size: 2rem;
+            font-weight: 700;
+        }
         .textoAlertaRojo { color: #b91c1c; font-weight: 700; }
         .textoAlertaNaranja { color: #c2410c; font-weight: 700; }
-        .textoAlertaAmarillo { color: #854d0e; font-weight: 700; }
+        .textoAlertaAmarillo { color: #eab308; font-weight: 700; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.08); }
         .textoAlertaNormal { color: #166534; font-weight: 700; }
         .cuenca-tajo-capa {
             pointer-events: none;
@@ -197,6 +201,7 @@
                 return !isNaN(p.latNum) && !isNaN(p.lngNum);
             });
             var puntosActivos = todosLosPuntos.slice();
+            var boundsCuenca = null;
 
             function etiquetaAlerta(nivel) {
                 if (nivel === 3) return { texto: 'Rojo', clase: 'textoAlertaRojo' };
@@ -230,7 +235,7 @@
                         ${extra}
                         <div><strong>Valor:</strong> ${valorFormateado(punto)}</div>
                         <div><strong>Alerta:</strong> <span class="${alerta.clase}">${alerta.texto}</span></div>
-                        <div><strong>Tendencia:</strong> ${punto.tendencia || '---'}</div>
+                        <div><strong>Tendencia:</strong> <span class="tendencia-mapa">${punto.tendencia || '---'}</span></div>
                     </div>
                 `;
             }
@@ -265,7 +270,8 @@
                             },
                             className: 'cuenca-tajo-capa'
                         }).addTo(map);
-                        map.fitBounds(capaCuenca.getBounds(), { padding: [20, 20] });
+                        boundsCuenca = capaCuenca.getBounds();
+                        map.fitBounds(boundsCuenca, { padding: [20, 20] });
                     })
                     .catch(function(error) {
                         console.error(error.message);
@@ -299,7 +305,7 @@
             }
 
             // Filtros para el mapa
-            function aplicarFiltros() {
+            function aplicarFiltros(aplicarZoomCcaa) {
                 var textoFiltro = document.getElementById('filtro-texto').value.toLowerCase().trim();
                 var tipoFiltro = document.getElementById('filtro-tipo').value;
                 var ccaaFiltro = document.getElementById('filtro-ccaa').value;
@@ -324,13 +330,34 @@
                 });
 
                 dibujarMapa(puntosActivos);
+
+                if (aplicarZoomCcaa && ccaaFiltro !== 'todas') {
+                    if (puntosActivos.length > 0) {
+                        var bounds = L.latLngBounds(puntosActivos.map(function(p) {
+                            return [p.latNum, p.lngNum];
+                        }));
+                        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 11 });
+                    } else if (boundsCuenca) {
+                        map.fitBounds(boundsCuenca, { padding: [20, 20] });
+                    }
+                } else if (aplicarZoomCcaa && boundsCuenca) {
+                    map.fitBounds(boundsCuenca, { padding: [20, 20] });
+                }
             }
 
-            document.getElementById('filtro-tipo').addEventListener('change', aplicarFiltros);
-            document.getElementById('filtro-ccaa').addEventListener('change', aplicarFiltros);
-            document.getElementById('filtro-alerta').addEventListener('change', aplicarFiltros);
+            document.getElementById('filtro-tipo').addEventListener('change', function() {
+                aplicarFiltros(false);
+            });
+            document.getElementById('filtro-ccaa').addEventListener('change', function() {
+                aplicarFiltros(true);
+            });
+            document.getElementById('filtro-alerta').addEventListener('change', function() {
+                aplicarFiltros(false);
+            });
 
-            document.getElementById('filtro-texto').addEventListener('keyup', aplicarFiltros);
+            document.getElementById('filtro-texto').addEventListener('keyup', function() {
+                aplicarFiltros(false);
+            });
 
             cargarCuenca();
             dibujarMapa(todosLosPuntos);

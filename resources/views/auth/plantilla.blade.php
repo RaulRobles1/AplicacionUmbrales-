@@ -27,12 +27,13 @@
         /* CABECERA */
 
         .cabecera {
-            height: 60px;
+            height: 88px;
             background: #2d3748;
             color: #ffffff;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
             align-items: center;
+            gap: 24px;
             padding: 0 30px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             position: fixed;
@@ -53,6 +54,23 @@
             display: flex;
             align-items: center;
             gap: 24px;
+        }
+
+        .cabeceraBanner {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            min-width: 0;
+            justify-self: end;
+        }
+
+        .cabeceraBanner img {
+            height: 56px;
+            max-height: 64px;
+            width: 100%;
+            max-width: 520px;
+            object-fit: contain;
+            display: block;
         }
 
         .textoLogo {
@@ -91,7 +109,7 @@
             align-items: center;
             gap: 16px;
             padding-left: 24px;
-            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            justify-self: end;
         }
 
         .formBuscadorLateral {
@@ -162,8 +180,8 @@
 
         .contenedor {
             display: flex;
-            margin-top: 60px;
-            height: calc(100vh - 60px);
+            margin-top: 88px;
+            height: calc(100vh - 88px);
             overflow: hidden;
         }
 
@@ -419,7 +437,12 @@
             }
 
             .cabecera {
-                height: 56px;
+                height: 72px;
+            }
+
+            .cabeceraBanner img {
+                height: 44px;
+                max-width: 360px;
             }
 
             .cabeceraDerecha,
@@ -429,8 +452,8 @@
             }
 
             .contenedor {
-                margin-top: 56px;
-                height: calc(100vh - 56px);
+                margin-top: 72px;
+                height: calc(100vh - 72px);
             }
         }
     </style>
@@ -462,6 +485,10 @@
         <div class="cabeceraDerecha">
             <span class="textoEmail">{{ session('email') }}</span>
             <a href="/cerrarSesion" class="botonCerrar">Cerrar Sesión</a>
+        </div>
+
+        <div class="cabeceraBanner">
+            <img src="{{ asset('images/logo-web-CHT-centenario.png') }}" alt="Banner centenario CHT">
         </div>
 
     </header>

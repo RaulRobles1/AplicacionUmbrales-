@@ -320,8 +320,18 @@
             @endif
         </div>
 
+        @php
+            $totalDetalle = $totalEstacionesEpisodio ?? count($estaciones);
+            $activasAlertadas = $estaciones->filter(fn ($e) => (int) ($e->nivel_alerta ?? 0) > 0)->count();
+            $esActivoDetalle = empty($episodio->re_hora_fin);
+        @endphp
         <div style="text-align: right; margin-top: 5px;">
-            <span class="pill-global">{{ $totalEstacionesEpisodio ?? count($estaciones) }} {{ $etiquetaEstacionesDetalle ?? 'Estaciones afectadas' }}</span>
+            @if ($esActivoDetalle)
+                <span class="pill-global">{{ $activasAlertadas }} activas con alerta</span>
+                <span class="pill-global" style="margin-left: 6px;">{{ $totalDetalle }} Total Estaciones</span>
+            @else
+                <span class="pill-global">{{ $totalDetalle }} {{ $etiquetaEstacionesDetalle ?? 'Estaciones afectadas' }}</span>
+            @endif
             <div style="color: #666; font-size: 0.75rem; margin-top: 6px;">Última act: {{ now()->format('H:i') }}</div>
         </div>
     </div>
@@ -558,17 +568,7 @@
                             }],
                             colors: ['#3b82f6'],
                             tooltip: {
-                                fixed: {
-                                    enabled: false
-                                },
-                                x: {
-                                    show: false
-                                },
-                                y: {
-                                    title: {
-                                        formatter: () => ''
-                                    }
-                                }
+                                enabled: false
                             }
                         }).render();
 

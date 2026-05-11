@@ -33,7 +33,7 @@
     }
 
     .cabeceraContenido {
-        padding: 18px 2cm 16px 2cm;
+        padding: 24px 2cm 20px 2cm;
         display: table;
         width: 100%;
         box-sizing: border-box;
@@ -44,6 +44,20 @@
     .cabeceraTextoCelda {
         display: table-cell;
         vertical-align: middle;
+        text-align: left;
+    }
+
+    .cabeceraBannerCelda {
+        display: table-cell;
+        vertical-align: middle;
+        text-align: right;
+        width: 300px;
+    }
+
+    .cabeceraBannerImg {
+        height: 40px;
+        width: auto;
+        max-width: 280px;
     }
 
     .cabeceraMinisterio {
@@ -299,6 +313,10 @@
             <div class="cabeceraOrganismo">Confederación Hidrográfica del Tajo</div>
             <div class="cabeceraMinisterio">Ministerio para la Transición Ecológica y el Reto Demográfico</div>
 
+        </div>
+
+        <div class="cabeceraBannerCelda">
+            <img class="cabeceraBannerImg" src="{{ public_path('images/logo-web-CHT-centenario.png') }}" alt="Confederación Hidrográfica del Tajo - Centenario">
         </div>
 
 

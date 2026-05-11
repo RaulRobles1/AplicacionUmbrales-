@@ -29,7 +29,11 @@ class EpisodioController extends Controller
             $faltanTendencias = $cacheGlobal
                 ->flatMap(fn ($estaciones) => collect($estaciones))
                 ->contains(fn ($estacion) => ! is_array($estacion) || ! array_key_exists('tendencia', $estacion));
-            $requiereSincronizacion = $faltanTendencias;
+            $requiereSincronizacion = $faltanTendencias || $cacheGlobal->isEmpty();
+        }
+
+        if (! $requiereSincronizacion && is_array($cacheGlobal) && empty($cacheGlobal)) {
+            $requiereSincronizacion = true;
         }
 
         // La actualización periódica la hace el scheduler (api:sync-datos cada 5 min).
@@ -195,6 +199,42 @@ class EpisodioController extends Controller
         return $niveles;
     }
 
+    private function obtenerFechasEstacionesPorEpisodio($episodios): array
+    {
+        $ids = collect($episodios)->pluck('re_id')->filter()->values()->all();
+        if (empty($ids)) {
+            return [];
+        }
+
+        $registros = DB::table(function ($query) use ($ids) {
+            $query->select(
+                'rde_ran_episodio_id',
+                'rde_estacion',
+                'rde_hora',
+                DB::raw('ROW_NUMBER() OVER (PARTITION BY rde_ran_episodio_id, rde_estacion ORDER BY rde_hora DESC) as posicion')
+            )
+                ->from('umbrales_randatosepisodio')
+                ->whereIn('rde_ran_episodio_id', $ids);
+        }, 'subconsulta')
+            ->where('posicion', 1)
+            ->get();
+
+        $resultado = [];
+        foreach ($registros as $fila) {
+            $episodioId = (int) $fila->rde_ran_episodio_id;
+            $codigo = trim((string) $fila->rde_estacion);
+            if ($codigo === '') {
+                continue;
+            }
+            if (! isset($resultado[$episodioId])) {
+                $resultado[$episodioId] = [];
+            }
+            $resultado[$episodioId][$codigo] = $fila->rde_hora;
+        }
+
+        return $resultado;
+    }
+
     public function activosGlobal()
     {
         $episodios = DB::table('umbrales_ranepisodio')
@@ -205,12 +245,14 @@ class EpisodioController extends Controller
             ->get();
 
         $nivelesEstaciones = $this->obtenerNivelesAlertaVarios($episodios);
+        $fechasEstaciones = $this->obtenerFechasEstacionesPorEpisodio($episodios);
 
         return view('auth.episodios_lista', [
             'episodios' => $episodios,
             'titulo' => 'Cuenca del Tajo: Episodios Activos',
             'tipo' => 'Activos',
             'nivelesEstaciones' => $nivelesEstaciones,
+            'fechasEstaciones' => $fechasEstaciones,
         ]);
     }
 
@@ -225,12 +267,14 @@ class EpisodioController extends Controller
             ->get();
 
         $nivelesEstaciones = $this->obtenerNivelesAlertaVarios($episodios);
+        $fechasEstaciones = $this->obtenerFechasEstacionesPorEpisodio($episodios);
 
         return view('auth.episodios_lista', [
             'episodios' => $episodios,
             'titulo' => 'Cuenca del Tajo: Histórico de Episodios',
             'tipo' => 'Históricos',
             'nivelesEstaciones' => $nivelesEstaciones,
+            'fechasEstaciones' => $fechasEstaciones,
         ]);
     }
 
@@ -249,12 +293,14 @@ class EpisodioController extends Controller
         $nombreCcaa = $ccaa ? $ccaa->c_comunidad_autonoma : "CCAA $id";
 
         $nivelesEstaciones = $this->obtenerNivelesAlertaVarios($episodios);
+        $fechasEstaciones = $this->obtenerFechasEstacionesPorEpisodio($episodios);
 
         return view('auth.episodios_lista', [
             'episodios' => $episodios,
             'titulo' => "$nombreCcaa: Episodios Activos",
             'tipo' => 'Activos',
             'nivelesEstaciones' => $nivelesEstaciones,
+            'fechasEstaciones' => $fechasEstaciones,
         ]);
     }
 
@@ -272,12 +318,14 @@ class EpisodioController extends Controller
         $nombreCcaa = $ccaa ? $ccaa->c_comunidad_autonoma : "CCAA $id";
 
         $nivelesEstaciones = $this->obtenerNivelesAlertaVarios($episodios);
+        $fechasEstaciones = $this->obtenerFechasEstacionesPorEpisodio($episodios);
 
         return view('auth.episodios_lista', [
             'episodios' => $episodios,
             'titulo' => "$nombreCcaa: Histórico de Episodios",
             'tipo' => 'Históricos',
             'nivelesEstaciones' => $nivelesEstaciones,
+            'fechasEstaciones' => $fechasEstaciones,
         ]);
     }
 
@@ -316,8 +364,13 @@ class EpisodioController extends Controller
         }
 
         $episodioActivo = empty($episodio->re_hora_fin);
-        $campoEstaciones = $episodioActivo ? 're_estaciones_activas' : 're_estaciones_historicas';
-        $codigosEstaciones = ! empty($episodio->{$campoEstaciones}) ? explode(',', $episodio->{$campoEstaciones}) : [];
+        if ($episodioActivo) {
+            $activas = ! empty($episodio->re_estaciones_activas) ? explode(',', $episodio->re_estaciones_activas) : [];
+            $historicas = ! empty($episodio->re_estaciones_historicas) ? explode(',', $episodio->re_estaciones_historicas) : [];
+            $codigosEstaciones = array_merge($activas, $historicas);
+        } else {
+            $codigosEstaciones = ! empty($episodio->re_estaciones_historicas) ? explode(',', $episodio->re_estaciones_historicas) : [];
+        }
         $codigos = array_values(array_unique(array_filter(array_map('trim', $codigosEstaciones))));
 
         $estaciones = collect();

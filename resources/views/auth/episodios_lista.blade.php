@@ -365,8 +365,12 @@
                                 <th>Nº Episodio</th>
                                 <th>Nombre</th>
                                 <th>Comunidad Autónoma</th>
-                                <th>Estaciones afectadas</th>
-                                <th>Estaciones alarmadas actualmente</th>
+                                @if ($tipo !== 'Históricos')
+                                    <th>Estaciones alarmadas actualmente</th>
+                                @endif
+                                <th>
+                                    {{ $tipo === 'Históricos' ? 'Historico estaciones' : 'Historico estaciones' }}
+                                </th>
                                 <th>Iniciado</th>
                                 <th>Finalizado</th>
                                 <th>Boletines</th>
@@ -397,19 +401,30 @@
                                         )
                                         : [];
 
-                                    $estacionesAfectadas = empty($ep->re_hora_fin)
-                                        ? $estacionesActivas
-                                        : $estacionesHistoricas;
+                                    $estacionesAfectadas = ! empty($estacionesHistoricas)
+                                        ? $estacionesHistoricas
+                                        : $estacionesActivas;
 
-                                    $alarmadasReales = empty($ep->re_hora_fin) ? $estacionesActivas : [];
+                                    $alarmadasReales = empty($ep->re_hora_fin)
+                                        ? array_values(array_filter($estacionesActivas, function ($codigo) use ($nivelesEstaciones) {
+                                            return (int) ($nivelesEstaciones[$codigo] ?? 0) > 0;
+                                        }))
+                                        : [];
 
-                                    usort($estacionesAfectadas, function ($a, $b) use ($nivelesEstaciones) {
-                                        $nivelA = (int) ($nivelesEstaciones[$a] ?? 0);
-                                        $nivelB = (int) ($nivelesEstaciones[$b] ?? 0);
-                                        if ($nivelA === $nivelB) {
-                                            return strcmp((string) $a, (string) $b);
+                                    $fechasEpisodio = $fechasEstaciones[$ep->re_id] ?? [];
+                                    usort($estacionesAfectadas, function ($a, $b) use ($fechasEpisodio) {
+                                        $fechaA = $fechasEpisodio[$a] ?? null;
+                                        $fechaB = $fechasEpisodio[$b] ?? null;
+                                        if ($fechaA && $fechaB) {
+                                            return strtotime((string) $fechaB) <=> strtotime((string) $fechaA);
                                         }
-                                        return $nivelB <=> $nivelA;
+                                        if ($fechaA && ! $fechaB) {
+                                            return -1;
+                                        }
+                                        if ($fechaB && ! $fechaA) {
+                                            return 1;
+                                        }
+                                        return strcmp((string) $a, (string) $b);
                                     });
 
                                     usort($alarmadasReales, function ($a, $b) use ($nivelesEstaciones) {
@@ -443,6 +458,13 @@
                                             'nivel' => (int) ($nivelesEstaciones[$codigoAlarma] ?? 0),
                                         ];
                                     }, $alarmadasReales);
+
+                                    $afectadasConNivel = array_map(function ($codigoEstacion) use ($nivelesEstaciones) {
+                                        return [
+                                            'codigo' => $codigoEstacion,
+                                            'nivel' => (int) ($nivelesEstaciones[$codigoEstacion] ?? 0),
+                                        ];
+                                    }, $estacionesAfectadas);
                                 @endphp
 
                                 <tr>
@@ -457,6 +479,41 @@
                                         <div class="ccaaTexto">{{ $ep->nombre_ccaa ?? '---' }}</div>
                                     </td>
 
+                                    @if ($tipo === 'Activos')
+                                        <td>
+                                            @if (!empty($ep->re_hora_fin))
+                                                <span class="textoSecundario">Episodio finalizado</span>
+                                            @elseif (count($alarmadasReales) > 0)
+                                                <div class="celdaResumen">
+                                                    <span class="resumenLinea">
+                                                        <span class="badgeCantidad {{ $claseBadgeAlarmadas }}">{{ count($alarmadasReales) }}</span>
+                                                        alarmadas ahora
+                                                    </span>
+                                                    <div class="chipsListado">
+                                                        @foreach ($previewAlarmadas as $codigoAlarma)
+                                                            @php
+                                                                $nivel = (int) ($nivelesEstaciones[$codigoAlarma] ?? 0);
+                                                                $claseAlerta = $nivel > 0 ? 'alerta-' . $nivel : '';
+                                                            @endphp
+                                                            <span class="chipCodigo {{ $claseAlerta }}">{{ $codigoAlarma }}</span>
+                                                        @endforeach
+                                                        @if ($restantesAlarmadas > 0)
+                                                            <span class="chipCodigo">+{{ $restantesAlarmadas }}</span>
+                                                        @endif
+                                                    </div>
+                                                    <button type="button" class="btnVerListaEstaciones"
+                                                        data-titulo="Estaciones alarmadas - Episodio #{{ $ep->re_id }}"
+                                                        data-codigos='@json($alarmadasReales)'
+                                                        data-estaciones='@json($alarmadasConNivel)'>
+                                                        Ver todas
+                                                    </button>
+                                                </div>
+                                            @else
+                                                <span class="textoSecundario">Sin estaciones alarmadas ahora</span>
+                                            @endif
+                                        </td>
+                                    @endif
+
                                     <td>
                                         @if (count($estacionesAfectadas) > 0)
                                             <div class="celdaResumen">
@@ -466,7 +523,11 @@
                                                 </span>
                                                 <div class="chipsListado">
                                                     @foreach ($previewEstaciones as $codigoEstacion)
-                                                        <span class="chipCodigo">{{ $codigoEstacion }}</span>
+                                                        @php
+                                                            $nivel = (int) ($nivelesEstaciones[$codigoEstacion] ?? 0);
+                                                            $claseAlerta = $nivel > 0 ? 'alerta-' . $nivel : '';
+                                                        @endphp
+                                                        <span class="chipCodigo {{ $claseAlerta }}">{{ $codigoEstacion }}</span>
                                                     @endforeach
                                                     @if ($restantesEstaciones > 0)
                                                         <span class="chipCodigo">+{{ $restantesEstaciones }}</span>
@@ -474,45 +535,13 @@
                                                 </div>
                                                 <button type="button" class="btnVerListaEstaciones"
                                                     data-titulo="Estaciones afectadas - Episodio #{{ $ep->re_id }}"
-                                                    data-codigos='@json($estacionesAfectadas)'>
+                                                    data-codigos='@json($estacionesAfectadas)'
+                                                    data-estaciones='@json($afectadasConNivel)'>
                                                     Ver todas
                                                 </button>
                                             </div>
                                         @else
                                             <span class="textoSecundario">---</span>
-                                        @endif
-                                    </td>
-
-                                    <td>
-                                        @if (!empty($ep->re_hora_fin))
-                                            <span class="textoSecundario">Episodio finalizado</span>
-                                        @elseif (count($alarmadasReales) > 0)
-                                            <div class="celdaResumen">
-                                                <span class="resumenLinea">
-                                                    <span class="badgeCantidad {{ $claseBadgeAlarmadas }}">{{ count($alarmadasReales) }}</span>
-                                                    alarmadas ahora
-                                                </span>
-                                                <div class="chipsListado">
-                                                    @foreach ($previewAlarmadas as $codigoAlarma)
-                                                        @php
-                                                            $nivel = (int) ($nivelesEstaciones[$codigoAlarma] ?? 0);
-                                                            $claseAlerta = $nivel > 0 ? 'alerta-' . $nivel : '';
-                                                        @endphp
-                                                        <span class="chipCodigo {{ $claseAlerta }}">{{ $codigoAlarma }}</span>
-                                                    @endforeach
-                                                    @if ($restantesAlarmadas > 0)
-                                                        <span class="chipCodigo">+{{ $restantesAlarmadas }}</span>
-                                                    @endif
-                                                </div>
-                                                <button type="button" class="btnVerListaEstaciones"
-                                                    data-titulo="Estaciones alarmadas - Episodio #{{ $ep->re_id }}"
-                                                    data-codigos='@json($alarmadasReales)'
-                                                    data-estaciones='@json($alarmadasConNivel)'>
-                                                    Ver todas
-                                                </button>
-                                            </div>
-                                        @else
-                                            <span class="textoSecundario">Sin estaciones alarmadas ahora</span>
                                         @endif
                                     </td>
 

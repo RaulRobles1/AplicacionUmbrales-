@@ -111,7 +111,7 @@
                             {{ is_numeric($valorActual) ? number_format((float) $valorActual, 3, ',', '.') : '---' }}
                         </td>
 
-                        <td style="font-size: 1.15rem; font-weight: 700;">
+                        <td style="font-size: 2rem; font-weight: 700;">
                             {{ $tendencia }}
                         </td>
 

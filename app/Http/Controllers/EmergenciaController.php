@@ -187,7 +187,11 @@ class EmergenciaController extends Controller
             $faltanTendencias = $cacheGlobal
                 ->flatMap(fn ($estaciones) => collect($estaciones))
                 ->contains(fn ($estacion) => ! is_array($estacion) || ! array_key_exists('tendencia', $estacion));
-            $requiereSincronizacion = $faltanTendencias;
+            $requiereSincronizacion = $faltanTendencias || $cacheGlobal->isEmpty();
+        }
+
+        if (! $requiereSincronizacion && is_array($cacheGlobal) && empty($cacheGlobal)) {
+            $requiereSincronizacion = true;
         }
 
         // La actualización periódica la hace el scheduler (api:sync-datos cada 5 min).

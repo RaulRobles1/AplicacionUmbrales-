@@ -187,8 +187,8 @@
             position: sticky;
             left: 0;
             z-index: 11 !important;
-            border-right: 2px solid #7a8798 !important;
-            box-shadow: 6px 0 8px -8px rgba(15, 23, 42, 0.28);
+            border-right: none !important;
+            box-shadow: none;
         }
 
         .cabeceraNombre {
@@ -237,11 +237,11 @@
         }
 
         .inicioMes {
-            border-left: 3px solid #475569 !important;
+            border-left: 2px solid #cbd5e1 !important;
         }
 
         .finMes {
-            border-right: 3px solid #475569 !important;
+            border-right: 2px solid #cbd5e1 !important;
         }
 
         .filaComunidad {
@@ -336,17 +336,17 @@
             content: '';
             position: absolute;
             inset: 0;
-            background-color: rgba(0, 0, 0, 0.12);
+            background-color: transparent;
             pointer-events: none;
             z-index: 5;
         }
 
         .rastroHorizontal::after {
-            box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+            box-shadow: none;
         }
 
         .rastroVertical::after {
-            box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.5), inset -2px 0 0 rgba(0, 0, 0, 0.5);
+            box-shadow: none;
         }
 
         .celdaFoco {

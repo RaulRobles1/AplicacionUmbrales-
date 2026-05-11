@@ -66,7 +66,7 @@
                     @endif
                 </td>
 
-                <td style="font-size: 1.15rem; font-weight: 700;">
+                <td style="font-size: 2rem; font-weight: 700;">
                     {{ $e->tendencia ?? '→' }}
                 </td>
 
