@@ -558,7 +558,7 @@
 
                     </li>
                 @endforeach
-                <div class="tituloSeccion">Situaciones de Emergencia</div>
+                <div class="tituloSeccion">PLANES EMERGENCIA CCAA</div>
                 <li>
                     <a href="{{ route('emergencias.vistaPlan') }}" class="enlaceDesplegable">
                         <span>Vista Plan Emergencia</span>

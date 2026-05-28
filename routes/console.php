@@ -10,6 +10,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('api:sync-datos')
-    ->everyFiveMinutes()
+    ->cron('5,20,35,50 * * * *')
     ->withoutOverlapping(10)
     ->runInBackground();

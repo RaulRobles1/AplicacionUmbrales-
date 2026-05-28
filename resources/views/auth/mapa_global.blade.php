@@ -256,7 +256,7 @@
                 return fetch("{{ asset('geojson/CuencaTajoElegido.geojson') }}")
                     .then(function(response) {
                         if (!response.ok) {
-                            throw new Error('No se pudo cargar la cuenca: ' + response.status);
+                            throw new Error('Error al cargar la cuenca: ' + response.status);
                         }
                         return response.json();
                     })

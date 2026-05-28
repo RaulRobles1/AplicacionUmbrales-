@@ -278,9 +278,75 @@
             justify-content: flex-end;
         }
 
+        .resumenDerechaCol {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
         .metaActualizacion {
             color: #666;
             font-size: 0.78rem;
+        }
+
+        .resumenEstados {
+            width: auto;
+            border-collapse: collapse;
+            margin: 2px 0 0;
+            font-size: 0.74rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .resumenEstados td {
+            padding: 3px 6px;
+            text-align: left;
+            vertical-align: middle;
+            white-space: nowrap;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .resumenEstados tr:last-child td {
+            border-bottom: none;
+        }
+
+        .resumenEstados tr:last-child td {
+            border-bottom: none;
+        }
+
+        .resumenItem {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 42px;
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            color: #374151;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .resumenDot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .resumenLeyenda {
+            display: grid;
+            grid-template-columns: 110px repeat(4, minmax(42px, auto));
+            align-items: center;
+            column-gap: 10px;
+        }
+
+        .resumenTipo {
+            font-weight: 700;
+            color: #111827;
+            margin-right: 0;
         }
 
         .bloqueFiltroCcaa {
@@ -316,17 +382,67 @@
         }
     </style>
 
+    @php
+        $resumenAforos = [
+            'normal' => $aforos->where('nivel_alerta', 0)->count(),
+            'amarilla' => $aforos->where('nivel_alerta', 1)->count(),
+            'naranja' => $aforos->where('nivel_alerta', 2)->count(),
+            'roja' => $aforos->where('nivel_alerta', 3)->count(),
+        ];
+        $resumenEmbalses = [
+            'normal' => $embalses->where('nivel_alerta', 0)->count(),
+            'amarilla' => $embalses->where('nivel_alerta', 1)->count(),
+            'naranja' => $embalses->where('nivel_alerta', 2)->count(),
+            'roja' => $embalses->where('nivel_alerta', 3)->count(),
+        ];
+        $totalAforosVista = $totalAforos ?? count($aforos);
+        $totalEmbalsesVista = $totalEmbalses ?? count($embalses);
+        $mostrarAforosNormal = ($resumenAforos['amarilla'] + $resumenAforos['naranja'] + $resumenAforos['roja']) === 0
+            ? $totalAforosVista
+            : $resumenAforos['normal'];
+        $mostrarEmbalsesNormal = ($resumenEmbalses['amarilla'] + $resumenEmbalses['naranja'] + $resumenEmbalses['roja']) === 0
+            ? $totalEmbalsesVista
+            : $resumenEmbalses['normal'];
+    @endphp
+
     <div class="resumenSuperior">
         <div style="display: flex; align-items: center; gap: 15px;">
             <h2 style="margin: 0;">{{ $titulo }}</h2>
         </div>
 
-        <div class="resumenDerecha">
-            <span class="etiquetaGlobal">{{ count($aforos) + count($embalses) }} Estaciones encontradas</span>
-            <small class="metaActualizacion">
+        <div class="resumenDerechaCol">
+            <span class="etiquetaGlobal">{{ count($aforos) + count($embalses) }} Estaciones</span>
+            <table class="resumenEstados" aria-label="Resumen de alertas">
+                <tbody>
+                    <tr aria-label="Resumen de alertas en aforos">
+                        <td>
+                            <span class="resumenLeyenda">
+                                <span class="resumenTipo">Aforos en Río</span>
+                                <span class="resumenItem"><span class="resumenDot punt0"></span>{{ $mostrarAforosNormal }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt1"></span>{{ $resumenAforos['amarilla'] }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt2"></span>{{ $resumenAforos['naranja'] }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt3"></span>{{ $resumenAforos['roja'] }}</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr aria-label="Resumen de alertas en embalses">
+                        <td>
+                            <span class="resumenLeyenda">
+                                <span class="resumenTipo">Embalses</span>
+                                <span class="resumenItem"><span class="resumenDot punt0"></span>{{ $mostrarEmbalsesNormal }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt1"></span>{{ $resumenEmbalses['amarilla'] }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt2"></span>{{ $resumenEmbalses['naranja'] }}</span>
+                                <span class="resumenItem"><span class="resumenDot punt3"></span>{{ $resumenEmbalses['roja'] }}</span>
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            {{--  <small class="metaActualizacion">
                 Última actualización:
                 {{ !empty($ultimaSincronizacion) ? \Carbon\Carbon::parse($ultimaSincronizacion)->format('H:i:s') : 'Sin datos' }}
             </small>
+            --}}
         </div>
     </div>
 

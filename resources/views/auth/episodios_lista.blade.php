@@ -11,7 +11,7 @@
         .cabeceraEpisodios {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             gap: 16px;
             flex-wrap: wrap;
             padding: 14px 16px;
@@ -39,6 +39,41 @@
             gap: 8px;
             flex-wrap: wrap;
             align-items: center;
+        }
+
+        .tituloFila {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .cabeceraDerecha {
+            display: flex;
+            align-items: center;
+        }
+
+        .filtrosEpisodios {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filtroLabel {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .filtroSelect {
+            min-width: 220px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #1e293b;
+            font-size: 0.78rem;
         }
 
         .chipResumen {
@@ -344,15 +379,49 @@
         }
     </style>
 
+    @php
+        $nombresDisponibles = collect($episodios)
+            ->map(function ($ep) {
+                $nombre = trim((string) ($ep->re_nombre ?? ''));
+                if ($nombre === '' || $nombre === 'None') {
+                    return null;
+                }
+                return $nombre;
+            })
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+    @endphp
+
     <div class="episodiosShell">
         <div class="cabeceraEpisodios">
             <div>
-                <h2>{{ $titulo }}</h2>
+                <div class="tituloFila">
+                    <h2>{{ $titulo }}</h2>
+                    @if ($tipo === 'Históricos')
+                        <div class="filtrosEpisodios">
+                            <label class="filtroLabel" for="filtroNombreHistorico">Filtrar por nombre:</label>
+                            <select id="filtroNombreHistorico" class="filtroSelect" @if($nombresDisponibles->isEmpty()) disabled @endif>
+                                @if ($nombresDisponibles->isEmpty())
+                                    <option value="">No se ha encontrado ningun nombre</option>
+                                @else
+                                    <option value="">Todos</option>
+                                    @foreach ($nombresDisponibles as $nombre)
+                                        <option value="{{ $nombre }}">{{ $nombre }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                    @endif
+                </div>
                 <p class="subtituloEpisodios">Lista del detalle de los episodios </p>
             </div>
-            <div class="chipsResumen">
-                <span class="chipResumen destacado">{{ $tipo }}</span>
-                <span class="chipResumen">{{ count($episodios) }} episodios</span>
+            <div class="cabeceraDerecha">
+                <div class="chipsResumen">
+                    <span class="chipResumen destacado">{{ $tipo }}</span>
+                    <span class="chipResumen">{{ count($episodios) }} episodios</span>
+                </div>
             </div>
         </div>
 
@@ -467,7 +536,12 @@
                                     }, $estacionesAfectadas);
                                 @endphp
 
-                                <tr>
+                                @php
+                                    $nombreFiltro = (! empty($ep->re_nombre) && $ep->re_nombre !== 'None')
+                                        ? mb_strtolower(trim((string) $ep->re_nombre), 'UTF-8')
+                                        : '';
+                                @endphp
+                                <tr data-nombre="{{ $nombreFiltro }}">
                                     <td>
                                         <div class="codigoEpisodio">#{{ $ep->re_id }}</div>
                                     </td>
@@ -592,6 +666,12 @@
             const contenido = document.getElementById('contenidoPanelLista');
             const btnCerrar = document.getElementById('btnCerrarPanelLista');
             const botones = document.querySelectorAll('.btnVerListaEstaciones');
+            const filtroNombre = document.getElementById('filtroNombreHistorico');
+            const filasEpisodios = document.querySelectorAll('.tablaEpisodios tbody tr');
+
+            function normalizarTexto(texto) {
+                return (texto || '').toString().trim().toLowerCase();
+            }
 
             function cerrarOverlay() {
                 overlay.style.display = 'none';
@@ -636,6 +716,16 @@
                     overlay.style.display = 'flex';
                 });
             });
+
+            if (filtroNombre) {
+                filtroNombre.addEventListener('change', function() {
+                    const valor = normalizarTexto(filtroNombre.value);
+                    filasEpisodios.forEach(fila => {
+                        const nombre = normalizarTexto(fila.dataset.nombre || '');
+                        fila.style.display = !valor || nombre === valor ? '' : 'none';
+                    });
+                });
+            }
 
             btnCerrar.addEventListener('click', cerrarOverlay);
             overlay.addEventListener('click', function(evento) {

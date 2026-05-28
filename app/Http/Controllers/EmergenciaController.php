@@ -7,6 +7,7 @@ use App\Models\UmbralesCcaa;
 use App\Models\UmbralesProvincia;
 use App\Services\EstadoActualService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -176,6 +177,18 @@ class EmergenciaController extends Controller
         $ultimaSincronizacion = Cache::get('api_estado_actual_sync_at');
         $cacheGlobal = Cache::get('api_estado_actual_global');
         $requiereSincronizacion = empty($ultimaSincronizacion) || $cacheGlobal === null;
+        $maxEdadMinutos = (int) env('ESTADO_ACTUAL_MAX_AGE_MIN', 6);
+        $fechaUltimaSync = null;
+        if (! empty($ultimaSincronizacion)) {
+            try {
+                $fechaUltimaSync = Carbon::parse($ultimaSincronizacion);
+            } catch (Throwable $e) {
+                $fechaUltimaSync = null;
+            }
+        }
+        if ($fechaUltimaSync !== null && $fechaUltimaSync->lt(now()->subMinutes($maxEdadMinutos))) {
+            $requiereSincronizacion = true;
+        }
         $modoGuardado = (string) Cache::get('api_estado_actual_modo', '');
         $modoEsperado = EstadoActualService::modoVisualizacionEsperado();
 
@@ -192,6 +205,21 @@ class EmergenciaController extends Controller
 
         if (! $requiereSincronizacion && is_array($cacheGlobal) && empty($cacheGlobal)) {
             $requiereSincronizacion = true;
+        }
+
+        if (! $requiereSincronizacion && $modoEsperado === 'todas') {
+            $totalActivas = $estadoActualSyncService->contarEstacionesActivas();
+            $totalCache = 0;
+
+            if ($cacheGlobal instanceof \Illuminate\Support\Collection) {
+                $totalCache = $cacheGlobal->flatMap(fn ($estaciones) => collect($estaciones))->count();
+            } elseif (is_array($cacheGlobal)) {
+                $totalCache = collect($cacheGlobal)->flatMap(fn ($estaciones) => collect($estaciones))->count();
+            }
+
+            if ($totalActivas > 0 && $totalCache < $totalActivas) {
+                $requiereSincronizacion = true;
+            }
         }
 
         // La actualización periódica la hace el scheduler (api:sync-datos cada 5 min).

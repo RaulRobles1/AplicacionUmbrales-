@@ -18,6 +18,18 @@ class EpisodioController extends Controller
         $ultimaSincronizacion = Cache::get('api_estado_actual_sync_at');
         $cacheGlobal = Cache::get('api_estado_actual_global');
         $requiereSincronizacion = empty($ultimaSincronizacion) || $cacheGlobal === null;
+        $maxEdadMinutos = (int) env('ESTADO_ACTUAL_MAX_AGE_MIN', 6);
+        $fechaUltimaSync = null;
+        if (! empty($ultimaSincronizacion)) {
+            try {
+                $fechaUltimaSync = Carbon::parse($ultimaSincronizacion);
+            } catch (Throwable $e) {
+                $fechaUltimaSync = null;
+            }
+        }
+        if ($fechaUltimaSync !== null && $fechaUltimaSync->lt(now()->subMinutes($maxEdadMinutos))) {
+            $requiereSincronizacion = true;
+        }
         $modoGuardado = (string) Cache::get('api_estado_actual_modo', '');
         $modoEsperado = EstadoActualService::modoVisualizacionEsperado();
 
@@ -36,6 +48,21 @@ class EpisodioController extends Controller
             $requiereSincronizacion = true;
         }
 
+        if (! $requiereSincronizacion && $modoEsperado === 'todas') {
+            $totalActivas = $estadoActualSyncService->contarEstacionesActivas();
+            $totalCache = 0;
+
+            if ($cacheGlobal instanceof \Illuminate\Support\Collection) {
+                $totalCache = $cacheGlobal->flatMap(fn ($estaciones) => collect($estaciones))->count();
+            } elseif (is_array($cacheGlobal)) {
+                $totalCache = collect($cacheGlobal)->flatMap(fn ($estaciones) => collect($estaciones))->count();
+            }
+
+            if ($totalActivas > 0 && $totalCache < $totalActivas) {
+                $requiereSincronizacion = true;
+            }
+        }
+
         // La actualización periódica la hace el scheduler (api:sync-datos cada 5 min).
         // Evitamos recalcular desde petición web para no bloquear la respuesta.
 
@@ -43,12 +70,19 @@ class EpisodioController extends Controller
             return;
         }
 
+        $lock = Cache::lock('api:sync-datos:web', 120);
+        if (! $lock->get()) {
+            return;
+        }
+
         try {
-            $estadoActualSyncService->sincronizarCaches();
+            $estadoActualSyncService->sincronizarCaches(! app()->runningInConsole());
         } catch (Throwable $e) {
             Log::error('No se pudo refrescar la cache de estado actual para inicio', [
                 'message' => $e->getMessage(),
             ]);
+        } finally {
+            optional($lock)->release();
         }
     }
 
@@ -58,90 +92,101 @@ class EpisodioController extends Controller
 
         $resultadoFinal = Cache::get('api_estado_actual_global', collect());
         $ultimaSincronizacion = (string) Cache::get('api_estado_actual_sync_at', '');
-        $alertasApi = collect($resultadoFinal)->flatMap(function ($estaciones) {
+        $todasApi = collect($resultadoFinal)->flatMap(function ($estaciones) {
             return collect($estaciones);
         })->values();
-        $modoVisualizacion = (string) Cache::get('api_estado_actual_modo', 'todas');
-        $cacheInicioKey = 'inicio_panel_principal_v3_'.md5(($ultimaSincronizacion !== '' ? $ultimaSincronizacion : 'sin_sync').'|'.$modoVisualizacion);
-        $panelData = Cache::remember($cacheInicioKey, now()->addMinutes(20), function () use ($alertasApi) {
-            $codigosAforo = $alertasApi
-                ->filter(fn ($estacion) => strtoupper((string) data_get($estacion, 'tipo', '')) !== 'EMBALSE')
-                ->pluck('codigo')
-                ->filter()
-                ->values()
-                ->all();
 
-            $codigosEmbalse = $alertasApi
-                ->filter(fn ($estacion) => strtoupper((string) data_get($estacion, 'tipo', '')) === 'EMBALSE')
-                ->pluck('codigo')
-                ->filter()
-                ->values()
-                ->all();
+        $totalAforos = (int) DB::table('umbrales_umbralesran')
+            ->where('ur_activo', 1)
+            ->count();
+        $totalEmbalses = (int) DB::table('umbrales_embalsesran')
+            ->where('er_activo', 1)
+            ->count();
 
-            $tagSecundarioAforo = empty($codigosAforo)
-                ? collect()
-                : DB::table('umbrales_umbralesran')
-                    ->whereIn('ur_codigo', $codigosAforo)
-                    ->pluck('ur_tag_ip21_caudal', 'ur_codigo');
+        $alertasApi = $todasApi;
+        $modoEsperado = EstadoActualService::modoVisualizacionEsperado();
+        if ($modoEsperado === 'solo_emergencias') {
+            $alertasApi = $alertasApi
+                ->filter(fn ($estacion) => (int) data_get($estacion, 'alerta', 0) > 0)
+                ->values();
+        }
+        $codigosAforo = $alertasApi
+            ->filter(fn ($estacion) => strtoupper((string) data_get($estacion, 'tipo', '')) !== 'EMBALSE')
+            ->pluck('codigo')
+            ->filter()
+            ->values()
+            ->all();
 
-            $tagSecundarioEmbalse = empty($codigosEmbalse)
-                ? collect()
-                : DB::table('umbrales_embalsesran')
-                    ->whereIn('er_codigo', $codigosEmbalse)
-                    ->pluck('er_tag_volumen', 'er_codigo');
+        $codigosEmbalse = $alertasApi
+            ->filter(fn ($estacion) => strtoupper((string) data_get($estacion, 'tipo', '')) === 'EMBALSE')
+            ->pluck('codigo')
+            ->filter()
+            ->values()
+            ->all();
 
-            $codigosTotales = array_values(array_unique(array_merge($codigosAforo, $codigosEmbalse)));
-            $valoresAccesorios = empty($codigosTotales)
-                ? collect()
-                : DB::table(function ($query) use ($codigosTotales) {
-                    $query->select(
-                        'rde_estacion',
-                        'rde_valor_accesorio',
-                        DB::raw('ROW_NUMBER() OVER (PARTITION BY rde_estacion ORDER BY rde_hora DESC) as posicion')
-                    )
-                        ->from('umbrales_randatosepisodio')
-                        ->whereIn('rde_estacion', $codigosTotales);
-                }, 'subconsulta')
-                    ->where('posicion', 1)
-                    ->pluck('rde_valor_accesorio', 'rde_estacion');
+        $tagSecundarioAforo = empty($codigosAforo)
+            ? collect()
+            : DB::table('umbrales_umbralesran')
+                ->whereIn('ur_codigo', $codigosAforo)
+                ->pluck('ur_tag_ip21_caudal', 'ur_codigo');
 
-            $estacionesNormalizadas = $alertasApi->map(function ($estacion) use ($tagSecundarioAforo, $tagSecundarioEmbalse, $valoresAccesorios) {
-                $tipo = strtoupper((string) data_get($estacion, 'tipo', ''));
-                $codigo = (string) data_get($estacion, 'codigo', '---');
-                $esEmbalse = $tipo === 'EMBALSE';
-                $tagSecundario = $esEmbalse
-                    ? ($tagSecundarioEmbalse->get($codigo) ?? '---')
-                    : ($tagSecundarioAforo->get($codigo) ?? '---');
+        $tagSecundarioEmbalse = empty($codigosEmbalse)
+            ? collect()
+            : DB::table('umbrales_embalsesran')
+                ->whereIn('er_codigo', $codigosEmbalse)
+                ->pluck('er_tag_volumen', 'er_codigo');
 
-                return (object) [
-                    'tipo' => $esEmbalse ? 'embalse' : 'aforo',
-                    'codigo' => $codigo,
-                    'nombre' => data_get($estacion, 'nombre', '---'),
-                    'rio' => data_get($estacion, 'provincia', '---'),
-                    'ccaa' => data_get($estacion, 'comunidad', '---'),
-                    'tag_salida' => data_get($estacion, 'senal', '---'),
-                    'tag_secundario' => ! empty($tagSecundario) ? $tagSecundario : '---',
-                    'valor' => data_get($estacion, 'valor'),
-                    'valor_acc' => $valoresAccesorios->get($codigo),
-                    'hora' => data_get($estacion, 'fecha', '---'),
-                    'tendencia' => data_get($estacion, 'tendencia', '→'),
-                    'nivel_alerta' => (int) data_get($estacion, 'alerta', 0),
-                    'umbral1' => (float) data_get($estacion, 'nivel1', 0),
-                    'umbral2' => (float) data_get($estacion, 'nivel2', 0),
-                    'umbral3' => (float) data_get($estacion, 'nivel3', 0),
-                ];
-            })->sortByDesc('nivel_alerta')->values();
+        $codigosTotales = array_values(array_unique(array_merge($codigosAforo, $codigosEmbalse)));
+        $valoresAccesorios = empty($codigosTotales)
+            ? collect()
+            : DB::table(function ($query) use ($codigosTotales) {
+                $query->select(
+                    'rde_estacion',
+                    'rde_valor_accesorio',
+                    DB::raw('ROW_NUMBER() OVER (PARTITION BY rde_estacion ORDER BY rde_hora DESC) as posicion')
+                )
+                    ->from('umbrales_randatosepisodio')
+                    ->whereIn('rde_estacion', $codigosTotales);
+            }, 'subconsulta')
+                ->where('posicion', 1)
+                ->pluck('rde_valor_accesorio', 'rde_estacion');
 
-            $aforos = $estacionesNormalizadas->where('tipo', 'aforo')->values();
-            $embalses = $estacionesNormalizadas->where('tipo', 'embalse')->values();
+        $estacionesNormalizadas = $alertasApi->map(function ($estacion) use ($tagSecundarioAforo, $tagSecundarioEmbalse, $valoresAccesorios) {
+            $tipo = strtoupper((string) data_get($estacion, 'tipo', ''));
+            $codigo = (string) data_get($estacion, 'codigo', '---');
+            $esEmbalse = $tipo === 'EMBALSE';
+            $tagSecundario = $esEmbalse
+                ? ($tagSecundarioEmbalse->get($codigo) ?? '---')
+                : ($tagSecundarioAforo->get($codigo) ?? '---');
 
-            return [
-                'aforos' => $aforos,
-                'embalses' => $embalses,
-                'filtroCcaaAforos' => $aforos->pluck('ccaa')->filter()->unique()->sort()->values(),
-                'filtroCcaaEmbalses' => $embalses->pluck('ccaa')->filter()->unique()->sort()->values(),
+            return (object) [
+                'tipo' => $esEmbalse ? 'embalse' : 'aforo',
+                'codigo' => $codigo,
+                'nombre' => data_get($estacion, 'nombre', '---'),
+                'rio' => data_get($estacion, 'rio', '---'),
+                'ccaa' => data_get($estacion, 'comunidad', '---'),
+                'tag_salida' => data_get($estacion, 'senal', '---'),
+                'tag_secundario' => ! empty($tagSecundario) ? $tagSecundario : '---',
+                'valor' => data_get($estacion, 'valor'),
+                'valor_acc' => $valoresAccesorios->get($codigo),
+                'hora' => data_get($estacion, 'fecha', '---'),
+                'tendencia' => data_get($estacion, 'tendencia', '→'),
+                'nivel_alerta' => (int) data_get($estacion, 'alerta', 0),
+                'umbral1' => (float) data_get($estacion, 'nivel1', 0),
+                'umbral2' => (float) data_get($estacion, 'nivel2', 0),
+                'umbral3' => (float) data_get($estacion, 'nivel3', 0),
             ];
-        });
+        })->sortByDesc('nivel_alerta')->values();
+
+        $aforos = $estacionesNormalizadas->where('tipo', 'aforo')->values();
+        $embalses = $estacionesNormalizadas->where('tipo', 'embalse')->values();
+
+        $panelData = [
+            'aforos' => $aforos,
+            'embalses' => $embalses,
+            'filtroCcaaAforos' => $aforos->pluck('ccaa')->filter()->unique()->sort()->values(),
+            'filtroCcaaEmbalses' => $embalses->pluck('ccaa')->filter()->unique()->sort()->values(),
+        ];
 
         return view('auth.inicio_umbrales', [
             'titulo' => 'Panel Principal - Estado Actual',
@@ -150,6 +195,8 @@ class EpisodioController extends Controller
             'filtroCcaaAforos' => $panelData['filtroCcaaAforos'],
             'filtroCcaaEmbalses' => $panelData['filtroCcaaEmbalses'],
             'ultimaSincronizacion' => $ultimaSincronizacion,
+            'totalAforos' => $totalAforos,
+            'totalEmbalses' => $totalEmbalses,
         ]);
     }
 
@@ -559,30 +606,78 @@ class EpisodioController extends Controller
     {
         $this->sincronizarEstadoActualSiHaceFalta($estadoActualSyncService);
 
-        $estacionesApi = $estadoActualSyncService->construirEstadoActual(
-            $estadoActualSyncService->obtenerEstacionesEstadoActual()
-        );
+        $cacheGlobal = Cache::get('api_estado_actual_global');
+        $estacionesApi = collect();
 
-        $coordenadasPorCodigo = DB::table('umbrales_coordran')
-            ->select('lr_codigo_txt', 'latitud', 'longitud')
-            ->whereNotNull('latitud')
-            ->whereNotNull('longitud')
-            ->get()
-            ->mapWithKeys(function ($coord) {
-                $codigo = strtoupper(trim((string) $coord->lr_codigo_txt));
+        if ($cacheGlobal instanceof \Illuminate\Support\Collection) {
+            $estacionesApi = $cacheGlobal->flatMap(fn ($estaciones) => collect($estaciones))->values();
+        } elseif (is_array($cacheGlobal)) {
+            $estacionesApi = collect($cacheGlobal)->flatMap(fn ($estaciones) => collect($estaciones))->values();
+        }
 
-                return [
-                    $codigo => [
-                        'latitud' => $coord->latitud,
-                        'longitud' => $coord->longitud,
-                    ],
+        if ($estacionesApi->isEmpty()) {
+            $estacionesApi = $estadoActualSyncService->construirEstadoActual(
+                $estadoActualSyncService->obtenerEstacionesEstadoActual()
+            );
+        }
+
+        $coordRan = DB::table('umbrales_coordran')
+            ->select('lr_codigo_txt as codigo', 'latitud', 'longitud', 'lr_utm_huso', 'lr_utm_x', 'lr_utm_y')
+            ->where(function ($query) {
+                $query
+                    ->where(function ($subQuery) {
+                        $subQuery->whereNotNull('latitud')->whereNotNull('longitud');
+                    })
+                    ->orWhere(function ($subQuery) {
+                        $subQuery
+                            ->whereNotNull('lr_utm_huso')
+                            ->whereNotNull('lr_utm_x')
+                            ->whereNotNull('lr_utm_y');
+                    });
+            })
+            ->get();
+
+        $coordenadasPorCodigo = $coordRan
+            ->flatMap(function ($coord) {
+                $codigo = strtoupper(trim((string) $coord->codigo));
+                $codigoNormalizado = $this->normalizarCodigo($codigo);
+                $latitud = $coord->latitud;
+                $longitud = $coord->longitud;
+
+                if ($latitud === null || $longitud === null) {
+                    $convertido = $this->convertirUtmALatLong($coord->lr_utm_huso, $coord->lr_utm_x, $coord->lr_utm_y);
+                    if ($convertido) {
+                        $latitud = $convertido['latitud'];
+                        $longitud = $convertido['longitud'];
+                    }
+                }
+
+                if ($latitud === null || $longitud === null) {
+                    return [];
+                }
+
+                $entrada = [
+                    'latitud' => $latitud,
+                    'longitud' => $longitud,
                 ];
+
+                $pares = [
+                    $codigo => $entrada,
+                ];
+
+                if ($codigoNormalizado !== '' && $codigoNormalizado !== $codigo) {
+                    $pares[$codigoNormalizado] = $entrada;
+                }
+
+                return $pares;
             });
 
         $puntos = collect($estacionesApi)
             ->map(function ($estacion) use ($coordenadasPorCodigo) {
                 $codigo = strtoupper(trim((string) ($estacion['codigo'] ?? '')));
-                $coords = $coordenadasPorCodigo->get($codigo);
+                $codigoNormalizado = $this->normalizarCodigo($codigo);
+                $coords = $coordenadasPorCodigo->get($codigo)
+                    ?? ($codigoNormalizado !== '' ? $coordenadasPorCodigo->get($codigoNormalizado) : null);
 
                 if (! $coords) {
                     return null;
@@ -621,5 +716,74 @@ class EpisodioController extends Controller
             'puntos' => $puntos,
             'listaCcaa' => $listaCcaa,
         ]);
+    }
+
+    private function convertirUtmALatLong($huso, $utmX, $utmY): ?array
+    {
+        $zona = is_numeric($huso) ? (int) $huso : null;
+        $easting = is_numeric($utmX) ? (float) $utmX : (float) str_replace(',', '.', (string) $utmX);
+        $northing = is_numeric($utmY) ? (float) $utmY : (float) str_replace(',', '.', (string) $utmY);
+
+        if ($zona === null || $zona <= 0 || $easting <= 0 || $northing <= 0) {
+            return null;
+        }
+
+        $a = 6378137.0;
+        $e = 0.081819191;
+        $e1sq = 0.006739497;
+        $k0 = 0.9996;
+
+        $x = $easting - 500000.0;
+        $y = $northing;
+
+        $m = $y / $k0;
+        $mu = $m / ($a * (1 - ($e * $e / 4) - (3 * pow($e, 4) / 64) - (5 * pow($e, 6) / 256)));
+
+        $e1 = (1 - sqrt(1 - $e * $e)) / (1 + sqrt(1 - $e * $e));
+
+        $phi1 = $mu
+            + (3 * $e1 / 2 - 27 * pow($e1, 3) / 32) * sin(2 * $mu)
+            + (21 * pow($e1, 2) / 16 - 55 * pow($e1, 4) / 32) * sin(4 * $mu)
+            + (151 * pow($e1, 3) / 96) * sin(6 * $mu)
+            + (1097 * pow($e1, 4) / 512) * sin(8 * $mu);
+
+        $n1 = $a / sqrt(1 - pow($e * sin($phi1), 2));
+        $t1 = pow(tan($phi1), 2);
+        $c1 = $e1sq * pow(cos($phi1), 2);
+        $r1 = $a * (1 - $e * $e) / pow(1 - pow($e * sin($phi1), 2), 1.5);
+        $d = $x / ($n1 * $k0);
+
+        $lat = $phi1 - ($n1 * tan($phi1) / $r1) * (
+            pow($d, 2) / 2
+            - (5 + 3 * $t1 + 10 * $c1 - 4 * $c1 * $c1 - 9 * $e1sq) * pow($d, 4) / 24
+            + (61 + 90 * $t1 + 298 * $c1 + 45 * $t1 * $t1 - 252 * $e1sq - 3 * $c1 * $c1) * pow($d, 6) / 720
+        );
+
+        $lon = (
+            $d
+            - (1 + 2 * $t1 + $c1) * pow($d, 3) / 6
+            + (5 - 2 * $c1 + 28 * $t1 - 3 * $c1 * $c1 + 8 * $e1sq + 24 * $t1 * $t1) * pow($d, 5) / 120
+        ) / cos($phi1);
+
+        $lon0 = deg2rad(($zona - 1) * 6 - 180 + 3);
+
+        $latDeg = rad2deg($lat);
+        $lonDeg = rad2deg($lon0 + $lon);
+
+        if (! is_finite($latDeg) || ! is_finite($lonDeg)) {
+            return null;
+        }
+
+        return [
+            'latitud' => round($latDeg, 6),
+            'longitud' => round($lonDeg, 6),
+        ];
+    }
+
+    private function normalizarCodigo(string $codigo): string
+    {
+        $codigoLimpio = strtoupper(trim($codigo));
+
+        return preg_replace('/[^A-Z0-9]/', '', $codigoLimpio) ?? '';
     }
 }

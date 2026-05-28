@@ -10,28 +10,33 @@ use Illuminate\Support\Facades\Http;
 
 class EstadoActualService
 {
-    // TODO->  Sirve para hacer pruebas para cuando no hay ninguna emergencia, solo hay que cambiar el true por false para mostrar todas las estaciones, tengan o no emergencias.
-    private const SOLO_EMERGENCIAS = true;
+    // Controla si se filtran solo estaciones en emergencia (configurable por env).
+    private const ENV_SOLO_EMERGENCIAS = 'SOLO_EMERGENCIAS';
+
+    private static function soloEmergencias(): bool
+    {
+        return filter_var(env(self::ENV_SOLO_EMERGENCIAS, false), FILTER_VALIDATE_BOOLEAN);
+    }
 
     public static function modoVisualizacionEsperado(): string
     {
-        return self::SOLO_EMERGENCIAS ? 'solo_emergencias' : 'todas';
+        return self::soloEmergencias() ? 'solo_emergencias' : 'todas';
     }
 
     /**
      * * FUNCIÓN DE SINCRONIZACIÓN
      * * Descarga todo y lo guarda en la Caché
      */
-    public function sincronizarCaches(): void
+    public function sincronizarCaches(bool $modoRapido = false): void
     {
         // * Coge todos los datos de la BBDD
         $estacionesConfiguradas = $this->obtenerEstacionesEstadoActual();
 
         // * Junta los datos que nos interesan de la BBDD (código, nombre, provincia, umbrales, comunidad), con los datos en tiempo real de la api (valor actual, fecha, tendencia, señal)
-        $estadoActualCalculado = $this->construirEstadoActual($estacionesConfiguradas);
+        $estadoActualCalculado = $this->construirEstadoActual($estacionesConfiguradas, $modoRapido);
 
         // * Comprueba el booleano de SOLO_EMERGENCIAS para mostrar todas las estaciones o las alertadas
-        $soloEmergencias = self::SOLO_EMERGENCIAS;
+        $soloEmergencias = self::soloEmergencias();
         $modoVisualizacion = self::modoVisualizacionEsperado();
         $estacionesParaMostrar = $soloEmergencias
             ? $estadoActualCalculado->filter(fn($estacion) => (int) ($estacion['alerta'] ?? 0) > 0)->values()
@@ -43,7 +48,8 @@ class EstadoActualService
             ->map(fn($grupoComunidad) => $grupoComunidad->sortByDesc('alerta')->values())
             ->sortKeys();
 
-        Cache::forever('api_estado_actual_global', $estadoPorComunidad);
+        $cacheTtl = now()->addMinutes($this->cacheTtlMinutes());
+        Cache::put('api_estado_actual_global', $estadoPorComunidad, $cacheTtl);
 
         // * Guarda en CACÉ agrupando por ID de comunidad autónoma
         $estadoPorIdComunidad = $estacionesParaMostrar
@@ -54,15 +60,16 @@ class EstadoActualService
 
         // ? Aunque no haya estaciones activas, se guarda en un array vacío para asi evitar errores
         foreach ($idsComunidades as $idComunidad) {
-            Cache::forever(
+            Cache::put(
                 'api_estado_actual_ccaa_' . (int) $idComunidad,
-                $estadoPorIdComunidad->get((int) $idComunidad, collect())->values()
+                $estadoPorIdComunidad->get((int) $idComunidad, collect())->values(),
+                $cacheTtl
             );
         }
 
         // * Almacenamos lafecha de la ultima sincronización para asi poder mostrarlo
-        Cache::forever('api_estado_actual_sync_at', now()->toDateTimeString());
-        Cache::forever('api_estado_actual_modo', $modoVisualizacion);
+        Cache::put('api_estado_actual_sync_at', now()->toDateTimeString(), $cacheTtl);
+        Cache::put('api_estado_actual_modo', $modoVisualizacion, $cacheTtl);
     }
 
     /**
@@ -78,6 +85,7 @@ class EstadoActualService
                 DB::raw("'AFORO' as tipo"),
                 'umbrales_umbralesran.ur_codigo as codigo',
                 'umbrales_umbralesran.ur_nombre as nombre',
+                'umbrales_umbralesran.ur_rio as rio',
                 'umbrales_umbralesran.ur_provincia as provincia',
                 'umbrales_umbralesran.ur_tag_ip21 as tag_ip21',
                 'umbrales_umbralesran.ur_umbral1 as nivel1',
@@ -95,6 +103,7 @@ class EstadoActualService
                 DB::raw("'EMBALSE' as tipo"),
                 'umbrales_embalsesran.er_codigo as codigo',
                 'umbrales_embalsesran.er_nombre as nombre',
+                'umbrales_embalsesran.er_rio as rio',
                 'umbrales_embalsesran.er_provincia as provincia',
                 'umbrales_embalsesran.er_tag_ip21 as tag_ip21',
                 'umbrales_embalsesran.er_umbral1 as nivel1',
@@ -119,10 +128,10 @@ class EstadoActualService
      * * CONSTRUCTOR DEL ESTADO FINAL
      * * Une la base de datos con los resultados de la API
      */
-    public function construirEstadoActual($datosEstaciones)
+    public function construirEstadoActual($datosEstaciones, bool $modoRapido = false)
     {
         // * Pide los datos reales a la API de SAIH
-        $lecturasPorEstacion = $this->obtenerLecturasApiPorEstacion($datosEstaciones);
+        $lecturasPorEstacion = $this->obtenerLecturasApiPorEstacion($datosEstaciones, $modoRapido);
 
         $estacionesCalculadas = collect();
 
@@ -149,6 +158,7 @@ class EstadoActualService
                 'tipo' => $estacionBase->tipo,
                 'codigo' => $estacionBase->codigo,
                 'nombre' => $estacionBase->nombre,
+                'rio' => $estacionBase->rio,
                 'provincia' => $estacionBase->provincia,
                 'estacion' => $jsonLectura['estacion'] ?? $estacionBase->codigo,
                 'senal' => $jsonLectura['senal'] ?? $lecturaEstacion['tag'],
@@ -172,9 +182,17 @@ class EstadoActualService
         return $estacionesCalculadas;
     }
 
+    public function contarEstacionesActivas(): int
+    {
+        $aforos = DB::table('umbrales_umbralesran')->where('ur_activo', 1)->count();
+        $embalses = DB::table('umbrales_embalsesran')->where('er_activo', 1)->count();
+
+        return (int) $aforos + (int) $embalses;
+    }
+
 
     //* CONEXIÓN A LA API
-    private function obtenerLecturasApiPorEstacion($estaciones): array
+    private function obtenerLecturasApiPorEstacion($estaciones, bool $modoRapido = false): array
     {
         $estacionesColeccion = collect($estaciones)->values();
 
@@ -206,9 +224,9 @@ class EstadoActualService
             foreach ($tags as $tag) {
                 // * Se usa Http::retry para evitar bloqueos si la red tiene micro cortes
                 $urlApiSaih = env('API_SAIH_URL', 'http://vcmas08:8001/tr/ultimo_valor_tag/');
-                $respuesta = Http::retry(4, 300, null, false)
+                $respuesta = Http::retry($modoRapido ? 1 : 4, 300, null, false)
                     ->connectTimeout(1)
-                    ->timeout(8)
+                    ->timeout($modoRapido ? 3 : 8)
                     ->get($urlApiSaih . '?tag=' . urlencode($tag));
                 if (! ($respuesta instanceof Response) || ! $respuesta->ok()) {
                     continue; // ? Si la petición falla, pasa a la siguiente estación
@@ -224,7 +242,7 @@ class EstadoActualService
                         'fecha' => $json['fecha'] ?? 'Sin conexión',
                         'json' => $json,
                         'tag' => $tag,
-                        'tendencia' => $this->calcularTendencia($tag),
+                        'tendencia' => $modoRapido ? '→' : $this->calcularTendencia($tag),
                     ];
                     break;
                 }
@@ -234,6 +252,13 @@ class EstadoActualService
         }
 
         return $lecturasPorClave;
+    }
+
+    private function cacheTtlMinutes(): int
+    {
+        $ttl = (int) env('ESTADO_ACTUAL_MAX_AGE_MIN', 6);
+
+        return $ttl > 0 ? $ttl : 1;
     }
 
     private function claveEstacion(string $tipo, string $codigo): string

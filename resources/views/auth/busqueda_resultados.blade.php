@@ -179,8 +179,8 @@
             <div style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">Búsqueda: "{{ $query ?? request('query') }}"</div>
         </div>
         <div style="text-align: right; margin-top: 5px;">
-            <span class="pill-global">{{ count($estaciones) }} Estaciones encontradas</span>
-            <div style="color: #666; font-size: 0.75rem; margin-top: 6px;">Última act: {{ now()->format('H:i') }}</div>
+            <span class="pill-global">{{ count($estaciones) }} Estaciones</span>
+           {{--   <div style="color: #666; font-size: 0.75rem; margin-top: 6px;">Última act: {{ now()->format('H:i') }}</div>--}}
         </div>
     </div>
 

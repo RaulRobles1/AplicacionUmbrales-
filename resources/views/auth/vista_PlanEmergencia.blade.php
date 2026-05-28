@@ -28,12 +28,12 @@
 
     <style>
         :root {
-            --n0: #ffffff;
-            --n1: #eeee7b;
-            --n2: #ffff00;
-            --n3: #ffbf00;
-            --n4: #ff0000;
-            --n5: #000000;
+            --nivel0: #ffffff;
+            --nivel1: #eeee7b;
+            --nivel2: #ffff00;
+            --nivel3: #ffbf00;
+            --nivel4: #ff0000;
+            --nivel5: #6a0dad;
         }
 
         .panelPlan {
@@ -116,31 +116,31 @@
         }
 
         .l1 {
-            background: var(--n1);
+            background: var(--nivel1);
             color: #4b5563;
             border-color: #f3e17c;
         }
 
         .l2 {
-            background: var(--n2);
+            background: var(--nivel2);
             color: #374151;
             border-color: #f8e65a;
         }
 
         .l3 {
-            background: var(--n3);
+            background: var(--nivel3);
             color: #4a2f00;
             border-color: #f1ae2a;
         }
 
         .l4 {
-            background: var(--n4);
+            background: var(--nivel4);
             color: #ffffff;
             border-color: #d42a2a;
         }
 
         .l5 {
-            background: var(--n5);
+            background: var(--nivel5);
             color: #ffffff;
             border-color: #111827;
         }
@@ -278,31 +278,31 @@
         }
 
         .c0 {
-            background-color: var(--n0);
+            background-color: var(--nivel0);
         }
 
         .c1 {
-            background-color: var(--n1);
+            background-color: var(--nivel1);
             color: #000;
         }
 
         .c2 {
-            background-color: var(--n2);
+            background-color: var(--nivel2);
             color: #000;
         }
 
         .c3 {
-            background-color: var(--n3);
+            background-color: var(--nivel3);
             color: #000;
         }
 
         .c4 {
-            background-color: var(--n4);
+            background-color: var(--nivel4);
             color: #fff;
         }
 
         .c5 {
-            background-color: var(--n5);
+            background-color: var(--nivel5);
             color: #fff;
         }
 
@@ -543,7 +543,7 @@
         }
 
         .toastMovil {
-            --toast-duracion: 300ms;
+            --toast-duracion: 5000ms;
             position: fixed;
             top: 76px;
             right: 18px;
@@ -570,7 +570,7 @@
         }
 
         .toastMovil.toastAdvertencia {
-            --toast-duracion: 1000ms;
+            --toast-duracion: 5000ms;
             border-left-color: #d97706;
         }
 
@@ -880,8 +880,8 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const TOAST_DURACION_MS = 300;
-            const TOAST_DURACION_AVISO_MS = 1000;
+            const TOAST_DURACION_MS = 5000;
+            const TOAST_DURACION_AVISO_MS = 5000;
             const toast = document.getElementById('toastExitoPlan');
             if (toast) {
                 requestAnimationFrame(() => toast.classList.add('visible'));

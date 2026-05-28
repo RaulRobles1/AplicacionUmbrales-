@@ -30,7 +30,7 @@
     <div class="contenedorEmergencias">
 
         <header class="cabeceraFormulario">
-            <h2>Situaciones de Emergencia</h2>
+            <h2>PLANES EMERGENCIA CCAA</h2>
             <p>Formulario de registro de incidencias y situaciones de emergencia</p>
         </header>
 

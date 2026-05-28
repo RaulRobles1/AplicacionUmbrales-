@@ -332,7 +332,7 @@
             @else
                 <span class="pill-global">{{ $totalDetalle }} {{ $etiquetaEstacionesDetalle ?? 'Estaciones afectadas' }}</span>
             @endif
-            <div style="color: #666; font-size: 0.75rem; margin-top: 6px;">Última act: {{ now()->format('H:i') }}</div>
+           {{--   <div style="color: #666; font-size: 0.75rem; margin-top: 6px;">Última act: {{ now()->format('H:i') }}</div>--}}
         </div>
     </div>
 
