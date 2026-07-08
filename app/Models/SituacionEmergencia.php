@@ -13,6 +13,7 @@ class SituacionEmergencia extends Model
 
     protected $fillable = [
         'ccaa_id',
+        'provincia',
         'provincia_id',
         'nivel',
         'fecha',

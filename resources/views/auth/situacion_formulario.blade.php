@@ -98,7 +98,6 @@
                         <option value="2" {{ old('nivel', $prefillNivel) == '2' ? 'selected' : '' }}>Situación 0</option>
                         <option value="3" {{ old('nivel', $prefillNivel) == '3' ? 'selected' : '' }}>Situación 1</option>
                         <option value="4" {{ old('nivel', $prefillNivel) == '4' ? 'selected' : '' }}>Situación 2</option>
-                        <option value="5" {{ old('nivel', $prefillNivel) == '5' ? 'selected' : '' }}>Situación 3</option>
                     </select>
                     @error('nivel')
                         <span class="mensajeError">{{ $message }}</span>

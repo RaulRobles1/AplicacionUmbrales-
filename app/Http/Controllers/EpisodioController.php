@@ -621,21 +621,7 @@ class EpisodioController extends Controller
             );
         }
 
-        $coordRan = DB::table('umbrales_coordran')
-            ->select('lr_codigo_txt as codigo', 'latitud', 'longitud', 'lr_utm_huso', 'lr_utm_x', 'lr_utm_y')
-            ->where(function ($query) {
-                $query
-                    ->where(function ($subQuery) {
-                        $subQuery->whereNotNull('latitud')->whereNotNull('longitud');
-                    })
-                    ->orWhere(function ($subQuery) {
-                        $subQuery
-                            ->whereNotNull('lr_utm_huso')
-                            ->whereNotNull('lr_utm_x')
-                            ->whereNotNull('lr_utm_y');
-                    });
-            })
-            ->get();
+        $coordRan = $this->obtenerCoordenadasMapa();
 
         $coordenadasPorCodigo = $coordRan
             ->flatMap(function ($coord) {
@@ -785,5 +771,57 @@ class EpisodioController extends Controller
         $codigoLimpio = strtoupper(trim($codigo));
 
         return preg_replace('/[^A-Z0-9]/', '', $codigoLimpio) ?? '';
+    }
+
+    private function obtenerCoordenadasMapa()
+    {
+        $consultas = [
+            function () {
+                return DB::table('umbrales_coordran')
+                    ->select('lr_codigo_txt as codigo', 'latitud', 'longitud', 'lr_utm_huso', 'lr_utm_x', 'lr_utm_y')
+                    ->where(function ($query) {
+                        $query
+                            ->where(function ($subQuery) {
+                                $subQuery->whereNotNull('latitud')->whereNotNull('longitud');
+                            })
+                            ->orWhere(function ($subQuery) {
+                                $subQuery
+                                    ->whereNotNull('lr_utm_huso')
+                                    ->whereNotNull('lr_utm_x')
+                                    ->whereNotNull('lr_utm_y');
+                            });
+                    })
+                    ->get();
+            },
+            function () {
+                return DB::table('lista_remotas_bbdd')
+                    ->select('LR_CODIGO_TXT as codigo', 'LATITUD as latitud', 'LONGITUD as longitud', 'LR_UTM_HUSO as lr_utm_huso', 'LR_UTM_X as lr_utm_x', 'LR_UTM_Y as lr_utm_y')
+                    ->where(function ($query) {
+                        $query
+                            ->where(function ($subQuery) {
+                                $subQuery->whereNotNull('LATITUD')->whereNotNull('LONGITUD');
+                            })
+                            ->orWhere(function ($subQuery) {
+                                $subQuery
+                                    ->whereNotNull('LR_UTM_HUSO')
+                                    ->whereNotNull('LR_UTM_X')
+                                    ->whereNotNull('LR_UTM_Y');
+                            });
+                    })
+                    ->get();
+            },
+        ];
+
+        foreach ($consultas as $consulta) {
+            try {
+                return $consulta();
+            } catch (QueryException $e) {
+                Log::warning('No se pudieron leer las coordenadas del mapa desde una tabla candidata', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return collect();
     }
 }

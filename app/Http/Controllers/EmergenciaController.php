@@ -39,7 +39,7 @@ class EmergenciaController extends Controller
 
         $reglasValidacion = [
             'ccaa_id' => 'required|exists:umbrales_ccaa,c_id',
-            'nivel' => 'required|integer|min:0|max:5',
+            'nivel' => 'required|integer|min:0|max:4',
             'fecha' => 'required|date|before_or_equal:today',
             'hora' => 'required',
         ];
@@ -145,6 +145,8 @@ class EmergenciaController extends Controller
             ->all();
 
         DB::transaction(function () use ($request, $rutaPdf, $provinciasIds, $nombreProvinciaPorId, $textoProvincias) {
+            $usuarioId = session('id') ?? auth()->id() ?? 1;
+
             foreach ($provinciasIds as $provId) {
                 $nombreProvincia = $provId === null
                     ? $textoProvincias
@@ -159,7 +161,7 @@ class EmergenciaController extends Controller
                     'hora' => $request->hora,
                     'descripcion' => $request->descripcion,
                     'ruta_pdf' => $rutaPdf,
-                    'usuario_id' => session('id') ?? 1,
+                    'usuario_id' => $usuarioId,
                 ]);
             }
         });
@@ -285,7 +287,14 @@ class EmergenciaController extends Controller
             ->where('c_comunidad_autonoma', 'NOT ILIKE', '%AY%')
             ->get();
 
-        $registros = \App\Models\SituacionEmergencia::orderBy('fecha', 'asc')->orderBy('hora', 'asc')->get();
+        try {
+            $registros = \App\Models\SituacionEmergencia::orderBy('fecha', 'asc')->orderBy('hora', 'asc')->get();
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo cargar la tabla situacion_emergencia para el plan de emergencia', [
+                'message' => $e->getMessage(),
+            ]);
+            $registros = collect();
+        }
 
         $nombresNiveles = [
             0 => 'Normalidad',

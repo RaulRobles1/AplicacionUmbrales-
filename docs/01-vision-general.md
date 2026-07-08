@@ -61,7 +61,7 @@ Referencia de control de acceso: [../app/Http/Controllers/Controller.php](../app
 ## Supuestos y decisiones
 - Motor de base de datos esperado: PostgreSQL (uso de `ILIKE` y `DATE_TRUNC`).
 - Cache para estado actual y filtrado por CCAA con TTL.
-- Sesiones persistidas en base de datos si `SESSION_DRIVER=database`.
+- Sesiones persistidas en archivo si `SESSION_DRIVER=file`.
 
 ## Ver tambien
 - [Indice](README.md)

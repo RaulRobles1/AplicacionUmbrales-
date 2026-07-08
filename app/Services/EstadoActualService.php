@@ -200,6 +200,12 @@ class EstadoActualService
             return [];
         }
 
+        $urlApiSaih = env('API_SAIH_URL', 'http://vcmas08:8001/tr/ultimo_valor_tag/');
+        $hostApiSaih = parse_url($urlApiSaih, PHP_URL_HOST);
+        if (is_string($hostApiSaih) && $hostApiSaih !== '' && gethostbyname($hostApiSaih) === $hostApiSaih) {
+            return $this->lecturasVaciasPorEstacion($estacionesColeccion);
+        }
+
         $lecturasPorClave = [];
 
         foreach ($estacionesColeccion as $estacionBase) {
@@ -223,11 +229,14 @@ class EstadoActualService
 
             foreach ($tags as $tag) {
                 // * Se usa Http::retry para evitar bloqueos si la red tiene micro cortes
-                $urlApiSaih = env('API_SAIH_URL', 'http://vcmas08:8001/tr/ultimo_valor_tag/');
-                $respuesta = Http::retry($modoRapido ? 1 : 4, 300, null, false)
-                    ->connectTimeout(1)
-                    ->timeout($modoRapido ? 3 : 8)
-                    ->get($urlApiSaih . '?tag=' . urlencode($tag));
+                try {
+                    $respuesta = Http::retry($modoRapido ? 1 : 4, 300, null, false)
+                        ->connectTimeout(1)
+                        ->timeout($modoRapido ? 3 : 8)
+                        ->get($urlApiSaih . '?tag=' . urlencode($tag));
+                } catch (\Throwable $e) {
+                    continue;
+                }
                 if (! ($respuesta instanceof Response) || ! $respuesta->ok()) {
                     continue; // ? Si la petición falla, pasa a la siguiente estación
                 }
@@ -249,6 +258,26 @@ class EstadoActualService
             }
 
             $lecturasPorClave[$claveUnicaEstacion] = $lecturaResuelta;
+        }
+
+        return $lecturasPorClave;
+    }
+
+    private function lecturasVaciasPorEstacion($estacionesColeccion): array
+    {
+        $lecturasPorClave = [];
+
+        foreach ($estacionesColeccion as $estacionBase) {
+            $codigoEstacion = (string) $estacionBase->codigo;
+            $claveUnicaEstacion = $this->claveEstacion((string) $estacionBase->tipo, $codigoEstacion);
+            $tagConfigurado = strtoupper(trim((string) ($estacionBase->tag_ip21 ?? '')));
+            $lecturasPorClave[$claveUnicaEstacion] = [
+                'valor' => null,
+                'fecha' => 'Sin conexión',
+                'json' => [],
+                'tag' => $tagConfigurado !== '' ? $tagConfigurado : ($codigoEstacion . 'LI__02'),
+                'tendencia' => '→',
+            ];
         }
 
         return $lecturasPorClave;
