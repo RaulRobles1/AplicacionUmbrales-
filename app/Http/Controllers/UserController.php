@@ -100,6 +100,7 @@ class UserController extends Controller
             'first_name' => 'required|string|max:150',
             'last_name' => 'required|string|max:150',
             'email' => 'required|email|unique:auth_user,email,'.$id,
+            'password' => 'nullable|string|min:8|confirmed',
         ];
 
         if (! $esMiPropioUsuario) {
@@ -113,7 +114,9 @@ class UserController extends Controller
             'last_name' => $request->last_name,
             'email' => $request->email,
         ];
-
+         if ($request->filled('password')) {
+            $datos['password'] = $request->password;
+        }
         if (! $esMiPropioUsuario) {
             $datos['is_superuser'] = ($request->rol == 'superuser');
             $datos['is_staff'] = ($request->rol == 'staff' || $request->rol == 'superuser');

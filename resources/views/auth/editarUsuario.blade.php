@@ -123,7 +123,30 @@
         </div>
 
         <hr class="divisor">
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+        <hr class="divisor">
 
+        @if ($errors->any())
+            <div style="background:#fee2e2; color:#b91c1c; padding:12px; margin-bottom:15px; border-radius:6px;">
+                <ul style="margin:0; padding-left:18px;">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
+{{-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% --}}
         <form action="{{ route('actualizarUsuario', $usuario->id) }}" method="POST">
             @csrf
             @method('PUT')
@@ -177,7 +200,20 @@
                         class="entradaFormulario" required>
                 </div>
 
-            </div>
+                <div class="grupoFormulario">
+                    <label class="etiquetaFormulario">Contraseña</label>
+                    <input type="password" id="campoPassword" name="password" value="" class="entradaFormulario"
+                        placeholder="No rellenar para no cambiar la contraseña">
+                </div>
+
+                <div class="grupoFormulario">
+                    <label class="etiquetaFormulario">Confirmar contraseña</label>
+                    <input type="password" id="campoPasswordConfirm" name="password_confirmation" value="" class="entradaFormulario"
+                        placeholder="Repite la contraseña">
+                    <small id="mensajeError" style="display:none; color:#dc2626; font-size:0.8rem; margin-top:4px;">
+                        Las contraseñas no coinciden
+                    </small>
+                </div>
 
             <button type="submit" class="botonGuardar">
                 Guardar cambios
@@ -186,4 +222,41 @@
         </form>
 
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const password = document.getElementById('campoPassword');
+        const confirmacion = document.getElementById('campoPasswordConfirm');
+        const mensajeError = document.getElementById('mensajeError');
+        const boton = document.querySelector('.botonGuardar');
+        const formulario = document.querySelector('form');
+
+        function validarCoincidencia() {
+            // Comprueba que si los dos estan vacios no hay que validad nada por que no se quiere cambiar la contraseña
+            if (password.value === '' && confirmacion.value === '') {
+                mensajeError.style.display = 'none';
+                confirmacion.style.borderColor = '';
+                return true;
+            }
+
+            if (password.value !== confirmacion.value) {
+                mensajeError.style.display = 'block';
+                confirmacion.style.borderColor = '#dc2626';
+                return false;
+            } else {
+                mensajeError.style.display = 'none';
+                confirmacion.style.borderColor = '#16a34a';
+                return true;
+            }
+        }
+
+        password.addEventListener('input', validarCoincidencia);
+        confirmacion.addEventListener('input', validarCoincidencia);
+
+        formulario.addEventListener('submit', function (e) {
+            if (!validarCoincidencia()) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
 @endsection
