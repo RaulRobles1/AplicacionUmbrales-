@@ -225,6 +225,18 @@
                 return String(punto.valor_actual);
             }
 
+            function etiquetaValor(punto) {
+                if (punto.tipo === 'embalse') {
+                    return 'Caudal de salida (m³/s)';
+                }
+
+                if (punto.tipo === 'aforo') {
+                    return 'Nivel (m)';
+                }
+
+                return 'Nivel (m)';
+            }
+
             function tooltipHtml(punto, totalAgrupados) {
                 var alerta = etiquetaAlerta(punto.nivel_alerta);
                 var extra = totalAgrupados > 1 ? `<div><strong>Agrupa:</strong> ${totalAgrupados} estaciones (máxima alerta aplicada)</div>` : '';
@@ -233,7 +245,7 @@
                     <div class="tooltipCuerpo">
                         <div><strong>Código:</strong> ${punto.codigo || '---'}</div>
                         ${extra}
-                        <div><strong>Valor:</strong> ${valorFormateado(punto)}</div>
+                        <div><strong>${etiquetaValor(punto)}:</strong> ${valorFormateado(punto)}</div>
                         <div><strong>Alerta:</strong> <span class="${alerta.clase}">${alerta.texto}</span></div>
                         <div><strong>Tendencia:</strong> <span class="tendencia-mapa">${punto.tendencia || '---'}</span></div>
                     </div>
