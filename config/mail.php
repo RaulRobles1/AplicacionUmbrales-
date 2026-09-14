@@ -115,4 +115,9 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'desembalses' => [
+        'test_mode' => env('MAIL_TEST_MODE', true),
+        'test_address' => env('MAIL_TEST_ADDRESS'),
+    ],
+
 ];

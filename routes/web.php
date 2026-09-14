@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EmergenciaController;
 use App\Http\Controllers\EpisodioController;
 use App\Http\Controllers\GraficoController;
+use App\Http\Controllers\DesembalseController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -77,6 +78,10 @@ Route::get('/emergencias/nueva', [EmergenciaController::class, 'crear'])->name('
 Route::post('/emergencias/guardar', [EmergenciaController::class, 'guardar'])->name('emergencias.guardar');
 
 Route::get('/emergencias/vista-plan', [EmergenciaController::class, 'vistaPlanEmergencia'])->name('emergencias.vistaPlan');
+
+// Formulario de envío de desembalses
+Route::get('/desembalses/envio', [DesembalseController::class, 'crear'])->name('desembalses.crear');
+Route::post('/desembalses/envio', [DesembalseController::class, 'guardar'])->name('desembalses.guardar');
 
 // Ruta para el monitor en tiempo real (GLOBAL - Toda la cuenca)
 Route::get('/estado-actual', [EpisodioController::class, 'inicio'])->name('estado.actual');

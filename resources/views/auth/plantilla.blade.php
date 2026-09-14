@@ -492,7 +492,6 @@
         </div>
 
     </header>
-
     <div class="contenedor">
 
         <nav class="barraLateral">
@@ -573,6 +572,15 @@
                     </li>
                 @endif
 
+                <div class="tituloSeccion">ENVIO DESEMBALSES</div>
+                @if (session('is_staff') || session('is_superuser'))
+                    <li>
+                        <a href="{{ route('desembalses.crear') }}"
+                            class="enlaceDesplegable {{ request()->routeIs('desembalses.*') ? 'enlaceActivo' : '' }}">
+                            Enviar desembalse
+                        </a>
+                    </li>
+                @endif
                 @if (session('is_superuser'))
                     <div class="tituloSeccion">Configuración</div>
 
@@ -607,7 +615,7 @@
 
     </div>
 
-    @vite(['resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <script type="module">
         const CLAVE_NAVEGACION = 'umbrales_navegacion_interna';

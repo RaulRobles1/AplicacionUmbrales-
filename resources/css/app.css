@@ -1,11 +1,402 @@
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+
+:root {
+    --color-ink: #1f2937;
+    --color-ink-soft: #4b5563;
+    --color-water: #3b82f6;
+    --color-water-dark: #2563eb;
+    --color-water-pale: #eff6ff;
+    --color-surface: #ffffff;
+    --color-canvas: #f5f5f5;
+    --color-line: #e5e7eb;
+    --color-muted: #6b7280;
+    --color-success: #166534;
+    --color-danger: #dc2626;
+    --color-warning: #d97706;
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    background: var(--color-canvas);
+}
+
+body {
+    color: var(--color-ink);
+    background: var(--color-canvas);
+    font-family: 'Instrument Sans', 'Segoe UI', sans-serif;
+    text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button,
+a,
+select,
+input[type='checkbox'],
+input[type='radio'] {
+    -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.35);
+    outline-offset: 2px;
+}
+
+/* Base común para las pantallas que heredan de auth.plantilla. */
+.contenidoPrincipal {
+    background: var(--color-canvas);
+}
+
+.tarjeta {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+}
+
+.cabeceraFormulario,
+.cabeceraPanel,
+.cabeceraGrafico,
+.cabeceraPlan {
+    border-bottom: 1px solid var(--color-line);
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+}
+
+.cabeceraFormulario h2,
+.cabeceraPanel h2,
+.cabeceraGrafico h2,
+.cabeceraPlan h2 {
+    color: var(--color-ink);
+    letter-spacing: 0.01em;
+    margin: 0;
+}
+
+.cabeceraFormulario p,
+.subtituloEpisodios,
+.textoSecundario {
+    color: var(--color-muted);
+}
+
+.cuadriculaFormulario,
+.cuadricula2 {
+    gap: 18px;
+}
+
+.grupoFormulario {
+    margin-bottom: 18px;
+}
+
+.grupoFormulario label,
+.etiquetaFormulario,
+.filtroLabel {
+    color: var(--color-ink-soft);
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 7px;
+}
+
+.grupoFormulario input,
+.grupoFormulario select,
+.grupoFormulario textarea,
+.entradaFormulario,
+.entradaConf,
+.filtroSelect,
+.filtro-control {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    min-height: 42px;
+    padding: 10px 12px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+    width: 100%;
+}
+
+.grupoFormulario input:focus,
+.grupoFormulario select:focus,
+.grupoFormulario textarea:focus,
+.entradaFormulario:focus,
+.entradaConf:focus,
+.filtroSelect:focus,
+.filtro-control:focus {
+    border-color: var(--color-water);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    outline: 0;
+}
+
+.botonPrincipal,
+.botonAnadir,
+.botonEditar,
+.boton,
+.botonBuscadorLateral {
+    background: var(--color-water);
+    border: 1px solid var(--color-water);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    min-height: 40px;
+    padding: 9px 16px;
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.botonPrincipal:hover,
+.botonAnadir:hover,
+.botonEditar:hover,
+.boton:hover,
+.botonBuscadorLateral:hover {
+    background: var(--color-water-dark);
+    border-color: var(--color-water-dark);
+    transform: translateY(-1px);
+}
+
+.alertaExito,
+.alertaError,
+.alertaContexto {
+    border-radius: var(--radius-sm);
+    margin-bottom: 18px;
+    padding: 13px 15px;
+}
+
+.alertaExito {
+    background: #e8f6ef;
+    border: 1px solid #b9e4ca;
+    color: var(--color-success);
+}
+
+.alertaError {
+    background: #fff0ef;
+    border: 1px solid #f1c2bd;
+    color: var(--color-danger);
+}
+
+.alertaContexto {
+    background: var(--color-water-pale);
+    border: 1px solid #b8e2e3;
+    color: var(--color-water-dark);
+}
+
+.tablaHidro,
+.tabla-hidro,
+.tablaEpisodios,
+.resumenEstados {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.tablaHidro th,
+.tabla-hidro th,
+.tablaEpisodios th,
+.resumenEstados th {
+    background: #f3f4f6;
+    color: var(--color-ink-soft);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 12px 14px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.tablaHidro td,
+.tabla-hidro td,
+.tablaEpisodios td,
+.resumenEstados td {
+    border-bottom: 1px solid var(--color-line);
+    padding: 12px 14px;
+    vertical-align: middle;
+}
+
+.tablaHidro tbody tr:hover,
+.tabla-hidro tbody tr:hover,
+.tablaEpisodios tbody tr:hover {
+    background: #f9fafb;
+}
+
+.pill-global,
+.etiquetaGlobal,
+.chipResumen,
+.insigniaRol {
+    border-radius: 999px;
+}
+
+.mensajeError {
+    color: var(--color-danger);
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+.desembalseLayout {
+    display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 13fr) minmax(320px, 7fr);
+    margin: 0 auto;
+    max-width: 1120px;
+}
+
+.desembalseFormulario {
+    min-width: 0;
+}
+
+.panelDestinatarios {
+    align-self: start;
+    background: #f8fafc;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    min-width: 0;
+    padding: 18px;
+}
+
+.cabeceraDestinatarios {
+    align-items: center;
+    border-bottom: 1px solid var(--color-line);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+}
+
+.cabeceraDestinatarios h3 {
+    color: var(--color-ink);
+    font-size: 1rem;
+    margin: 0;
+}
+
+.cabeceraDestinatarios span {
+    background: #e5e7eb;
+    border-radius: 999px;
+    color: var(--color-ink-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 9px;
+}
+
+.textoAyudaDestinatarios,
+.destinatariosVacios {
+    color: var(--color-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.listaDestinatarios {
+    display: grid;
+    gap: 0 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 460px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.destinatarioCorreo {
+    align-items: flex-start;
+    border-bottom: 1px solid var(--color-line);
+    display: flex;
+    gap: 9px;
+    min-width: 0;
+    padding: 7px 0;
+}
+
+.destinatarioCorreo[hidden] {
+    display: none;
+}
+
+.destinatarioCorreo:last-child {
+    border-bottom: 0;
+}
+
+.destinatarioCorreo strong,
+.destinatarioCorreo span:last-child {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.destinatarioCorreo strong {
+    color: var(--color-ink);
+    font-size: 0.74rem;
+    margin-bottom: 2px;
+}
+
+.destinatarioCorreo span:last-child {
+    color: var(--color-ink-soft);
+    font-size: 0.72rem;
+}
+
+.indicadorDestinatario {
+    background: var(--color-water);
+    border-radius: 50%;
+    flex: 0 0 8px;
+    height: 8px;
+    margin-top: 5px;
+    width: 8px;
+}
+
+@media (max-width: 1024px) {
+    .contenidoPrincipal {
+        padding: 20px;
+    }
+
+    .tarjeta {
+        padding: 22px;
+    }
+}
+
+@media (max-width: 720px) {
+    .contenidoPrincipal {
+        padding: 12px;
+    }
+
+    .tarjeta {
+        border-radius: var(--radius-md);
+        padding: 16px;
+    }
+
+    .cuadriculaFormulario,
+    .cuadricula2 {
+        grid-template-columns: 1fr;
+    }
+
+    .desembalseLayout {
+        grid-template-columns: 1fr;
+    }
+
+    .listaDestinatarios {
+        grid-template-columns: 1fr;
+        max-height: 360px;
+    }
+
+    .tablaHidro,
+    .tabla-hidro,
+    .tablaEpisodios,
+    .resumenEstados {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .cabeceraFormulario h2,
+    .cabeceraPanel h2,
+    .cabeceraGrafico h2,
+    .cabeceraPlan h2 {
+        font-size: 1.2rem;
+    }
 }
