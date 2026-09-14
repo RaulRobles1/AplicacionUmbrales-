@@ -19,6 +19,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/umbrales_aplicacion/umbrales_app_1.0.tar
 Homestead.json
 Homestead.yaml
 Thumbs.db
